@@ -16,10 +16,14 @@ Note: This skeleton file can be safely removed if not needed!
 """
 
 import argparse
-import sys
 import logging
+import sys
 
 from juwpyter import __version__
+
+from .converter import convert_wordpress
+from .util import ensure_dir
+from .wp import publish_wp
 
 __author__ = "Eric Busboom"
 __copyright__ = "Eric Busboom"
@@ -28,42 +32,19 @@ __license__ = "mit"
 _logger = logging.getLogger(__name__)
 
 
-def fib(n):
-    """Fibonacci example function
-
-    Args:
-      n (int): integer
-
-    Returns:
-      int: n-th Fibonacci number
-    """
-    assert n > 0
-    a, b = 1, 1
-    for i in range(n-1):
-        a, b = b, a+b
-    return a
-
-
 def parse_args(args):
-    """Parse command line parameters
-
-    Args:
-      args ([str]): command line parameters as list of strings
-
-    Returns:
-      :obj:`argparse.Namespace`: command line parameters namespace
+    """Publish a Jupyter notebook to Wordpress
     """
     parser = argparse.ArgumentParser(
-        description="Just a Fibonacci demonstration")
+        'jwp',
+        description=parse_args.__doc__
+    )
+
     parser.add_argument(
         "--version",
         action="version",
         version="juwpyter {ver}".format(ver=__version__))
-    parser.add_argument(
-        dest="n",
-        help="n-th Fibonacci number",
-        type=int,
-        metavar="INT")
+
     parser.add_argument(
         "-v",
         "--verbose",
@@ -78,6 +59,20 @@ def parse_args(args):
         help="set loglevel to DEBUG",
         action="store_const",
         const=logging.DEBUG)
+
+    parser.add_argument('-H', '--header', help='Dump YAML of notebook header', action='store_true')
+
+    parser.add_argument('-n', '--no-op', help='Do everything but submit the post', action='store_true')
+
+    parser.add_argument('-s', '--site_name', help="Site name, in the .metapack.yaml configuration file")
+
+    parser.add_argument('-p', '--publish', help='Set the post state to published, rather than draft',
+                        action='store_true')
+
+    parser.add_argument('source', help="Path to the notebook")
+
+
+
     return parser.parse_args(args)
 
 
@@ -100,9 +95,16 @@ def main(args):
     """
     args = parse_args(args)
     setup_logging(args.loglevel)
-    _logger.debug("Starting crazy calculations...")
-    print("The {}-th Fibonacci number is {}".format(args.n, fib(args.n)))
-    _logger.info("Script ends here")
+    _logger.debug("")
+
+    p = '/tmp/metapack-wp-notebook/'
+    ensure_dir(p)
+
+    output_file, resources = convert_wordpress(args.source, p)
+
+    r, post = publish_wp(args.site_name, output_file, resources, args)
+    print("Post url: ", post.link)
+
 
 
 def run():
