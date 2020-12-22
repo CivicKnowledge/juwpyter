@@ -16,6 +16,7 @@ Note: This skeleton file can be safely removed if not needed!
 """
 
 import argparse
+import json
 import logging
 import sys
 
@@ -23,7 +24,7 @@ from juwpyter import __version__
 
 from .converter import convert_wordpress
 from .util import ensure_dir
-from .wp import publish_wp
+from .wp import PublishException, get_wp, publish_wp
 
 __author__ = "Eric Busboom"
 __copyright__ = "Eric Busboom"
@@ -69,9 +70,13 @@ def parse_args(args):
     parser.add_argument('-p', '--publish', help='Set the post state to published, rather than draft',
                         action='store_true')
 
+    parser.add_argument('-g', '--get', help='Get and display the post data and exit. ',
+                        action='store_true')
+
+    parser.add_argument('-f', '--frontmatter', help='Add frontmatter to notebook',
+                        action='store_true')
+
     parser.add_argument('source', help="Path to the notebook")
-
-
 
     return parser.parse_args(args)
 
@@ -86,7 +91,6 @@ def setup_logging(loglevel):
     logging.basicConfig(level=loglevel, stream=sys.stdout,
                         format=logformat, datefmt="%Y-%m-%d %H:%M:%S")
 
-
 def main(args):
     """Main entry point allowing external calls
 
@@ -100,17 +104,90 @@ def main(args):
     p = '/tmp/metapack-wp-notebook/'
     ensure_dir(p)
 
+    if args.frontmatter:
+        update_frontmatter(args.source)
+        return
+
     output_file, resources = convert_wordpress(args.source, p)
 
-    r, post = publish_wp(args.site_name, output_file, resources, args)
-    print("Post url: ", post.link)
+    if args.get:
+        post = get_wp(args.site_name, output_file, resources, args)
+        if post:
+            from pprint import pprint
+            post.content = "<content elided>"
+            print(pprint(post.struct))
+
+
+        else:
+            print('Did not find a post for this notebook')
+    else:
+        r, post = publish_wp(args.site_name, output_file, resources, args)
+        print("Post url: ", post.link)
 
 
 
 def run():
     """Entry point for console_scripts
     """
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except PublishException as e:
+        _logger.error(e)
+
+
+def update_frontmatter(path):
+    import nbformat
+    from uuid import uuid4
+
+    nb = nbformat.read(path, as_version=4)
+
+    def has_tag(t):
+        for c in nb.cells:
+            try:
+                if t in c.metadata.tags:
+                    return True
+            except AttributeError:
+                pass
+
+        return False
+
+    fm_cells = []
+    adds = []
+    if not has_tag('frontmatter'):
+        adds.append("frontmatter")
+        fm_cells.append(nbformat.v4.new_raw_cell(f"""
+show_input: hide
+github:
+identifier: {uuid4()}
+authors:
+- email: bob@example.com
+  name: Bob Bobson
+  organization: Bobcom
+  type: Analyst
+tags:
+- tag
+categories:
+- group
+        """, metadata={'tags':['frontmatter']}))
+
+    if not has_tag('Title'):
+        adds.append("title")
+        fm_cells.append(nbformat.v4.new_markdown_cell('# Title', metadata={'tags':['Title']}))
+
+    if not has_tag('Description'):
+        adds.append("description")
+        fm_cells.append(nbformat.v4.new_markdown_cell('Description',
+                                                      metadata={'tags':['Description']}))
+
+    nb.cells = fm_cells+nb.cells
+
+
+
+    if adds:
+        print(f"Added to {path}: {','.join(adds)}")
+        nbformat.write(nb, path)
+    else:
+        print(f"Added nothing: {path} is already complete")
 
 
 if __name__ == "__main__":

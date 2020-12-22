@@ -1,19 +1,11 @@
 ========
-juwpyter
+juwpyter: Create and publish Jupyter notebooks to Wordpress
 ========
 
-
-Add a short description here!
-
+Juwpyter publishes Jupyter notebooks to a Wordpress website, using the Wordpress
+XMLRPC interface, with formatting controlled by data in the notebook.
 
 Description
 ===========
 
-A longer description of your project goes here...
-
-
-Note
-====
-
-This project has been set up using PyScaffold 3.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+TBD

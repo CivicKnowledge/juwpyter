@@ -22,6 +22,9 @@ from .util import slugify
 
 logger = logging.getLogger(__name__)
 
+class MetadataError(Exception):
+    pass
+
 
 class OrganizeMetadata(Preprocessor):
     """Move a lot of metadata around """
@@ -47,17 +50,7 @@ class OrganizeMetadata(Preprocessor):
 
         # move the metadata we collected back into the notebook metadata.
         nb.metadata['frontmatter'] = self.front_matter
-        #nb.metadata['metatab'] = self.doc.as_dict()
         nb.metadata['metapack'] = self.metadata
-
-        # Reset the identity, name and descriptions, because they can have add forms
-        # in the data, which the Doc interface fixes.
-        #nb.metadata['metatab']['name'] = self.doc.name
-        #nb.metadata['metatab']['description'] = self.doc.description if self.doc.identifier else self.doc.description
-        #nb.metadata['metatab']['identifier'] = self.doc.identifier if self.doc.identifier else self.doc.identifier
-
-        if 'identifier' not in nb.metadata['frontmatter'] and nb.metadata['metatab']['identifier']:
-            nb.metadata['frontmatter']['identifier'] = nb.metadata['metatab']['identifier']
 
         return nb, resources
 
@@ -72,7 +65,6 @@ class OrganizeMetadata(Preprocessor):
             try:
                 self.front_matter.update(d)
             except ValueError:
-                print("!!!!", d)
                 raise
 
             cell.source = ''
@@ -234,10 +226,6 @@ class WordpressExporter(HTMLExporter):
 
         # Preprocess
         nb_copy, resources = self._preprocess(nb_copy, resources)
-
-        # move over some more metadata
-        if 'authors' not in nb_copy.metadata.frontmatter:
-            nb_copy.metadata.frontmatter['authors'] = list(self.get_creators(nb_copy.metadata.metatab))
 
         # Other useful metadata
         if not 'date' in nb_copy.metadata.frontmatter:

@@ -15,6 +15,8 @@ from wordpress_xmlrpc.methods.posts import EditPost, GetPost, NewPost
 
 logger = logging.getLogger(__name__)
 
+class PublishException(Exception):
+    pass
 
 def cust_field_dict(post):
     try:
@@ -103,6 +105,28 @@ def prepare_image(slug, file_name, post_id):
             'post_id': post_id
         }
 
+def get_wp(site_name, output_file, resources, args):
+    """
+
+    """
+
+    url, user, password = get_site_config(site_name)
+
+    meta = {}
+    for r in resources:
+        if r.endswith('.json'):
+            with open(r) as f:
+                meta = json.load(f)
+
+    fm = meta.get('frontmatter', {})
+
+    if not 'identifier' in fm or not fm['identifier']:
+        logger.error("Can't find a post that doesn't have a UUID. Publish it first.")
+
+    wp = Client(url, user, password)
+
+    return find_post(wp, fm['identifier'])
+
 
 def publish_wp(site_name, output_file, resources, args):
     """Publish a notebook to a wordpress post, using Gutenberg blocks.
@@ -137,11 +161,17 @@ def publish_wp(site_name, output_file, resources, args):
             with open(r) as f:
                 meta = json.load(f)
 
+    if not 'frontmatter' in meta:
+        raise PublishException('No Frontmatter')
+
     fm = meta.get('frontmatter', {})
 
     if not 'identifier' in fm or not fm['identifier']:
-        logger.error("Can't publish notebook without a unique identifier. Add this to the "
-                     "Metatab document or frontmatter metadata:\n   identifier: {}".format(str(uuid4())))
+        raise PublishException(
+            "Can't publish notebook without a unique identifier. "
+            "Add this to the Metatab document or frontmatter metadata:"
+            "\n   identifier: {}".format(str(uuid4()))+
+            "\n Or, run -F to create frontmatter" )
 
     wp = Client(url, user, password)
 
@@ -218,6 +248,7 @@ def publish_wp(site_name, output_file, resources, args):
 
     if fm.get('featured_image') and str(fm.get('featured_image')).strip():
         post.thumbnail = int(fm['featured_image'])
+
     elif hasattr(post, 'thumbnail') and isinstance(post.thumbnail, dict):
         # The thumbnail expects an attachment id on EditPost, but returns a dict on GetPost
         post.thumbnail = post.thumbnail['attachment_id']
