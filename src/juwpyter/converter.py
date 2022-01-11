@@ -109,6 +109,67 @@ class OrganizeMetadata(Preprocessor):
 
         return cell, resources
 
+class SplitHeaders(Preprocessor):
+    """ """
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+
+    def preprocess(self, nb, resources):
+
+        import re
+        from copy import copy
+
+        p = re.compile(r'^([#]+)\s+(.*)')
+
+        new_cells = []
+
+        for i, cell in enumerate(list(nb.cells)):
+
+            if cell.get('cell_type') == 'markdown':
+                proto_cell = copy(cell)
+                proto_cell.source = ''
+
+                next_cell = None
+
+                # Breakout the heading lines into seperate cells.
+                for l in cell.source.splitlines():
+                    m = p.match(l)
+                    if m:
+                        # It was a heading line, so add it as a new cell
+
+                        # Finish off the prior cell
+                        if next_cell is not None:
+                            new_cells.append(next_cell)
+
+                        next_cell = copy(proto_cell)
+                        next_cell.source += m.group(2).strip()
+                        next_cell.heading_level = len(m.group(1))
+                        new_cells.append(next_cell)
+
+                        next_cell = None
+                    elif len(l.strip()) == 0:
+                        # a blank line, which means another paragraph
+                        if next_cell is not None:
+                            new_cells.append(next_cell)
+
+                        next_cell = None
+                    else:
+                        if next_cell is None:
+                            next_cell = copy(proto_cell)
+
+                        next_cell.source += l.strip()+'\n'
+
+                if next_cell is not None:
+                    new_cells.append(next_cell)
+
+            else:
+                # Not a markwodn cell, so just move it over
+                new_cells.append(cell)
+
+        nb.cells = new_cells
+
+        return nb, resources
 
 class AttachementOutputExtractor(ExtractOutputPreprocessor):
     """Extract outputs from a notebook
@@ -179,14 +240,13 @@ class WordpressExporter(HTMLExporter):
     @property
     def default_config(self):
 
-        c = Config({
+        c = Config({})
 
-        })
-
-        c.TemplateExporter.template_path = [dirname(juwpyter.support.templates.__file__)]
+        c.TemplateExporter.extra_template_paths = [dirname(juwpyter.support.templates.__file__)]
         c.TemplateExporter.template_file = 'html_wordpress.tpl'
 
         c.HTMLExporter.preprocessors = [
+            'juwpyter.converter.SplitHeaders',
             'juwpyter.converter.OrganizeMetadata',
             AttachementOutputExtractor
         ]
@@ -302,11 +362,11 @@ def convert_wordpress(nb_path, wp_path):
         logger.error("Notebook path does not exist: '{}' ".format(nb_path))
 
     c = Config()
+
     c.WordpressExporter.staging_dir = wp_path
     he = WordpressExporter(config=c, log=logger)
 
     output, resources = he.from_filename(nb_path)
-
     logger.info('Writing Notebook to Wordpress HTML')
 
     output_file = resources['unique_key'] + resources['output_extension']

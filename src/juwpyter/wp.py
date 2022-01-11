@@ -62,6 +62,15 @@ def find_post(wp, identifier):
 
     return None
 
+def get_site_names():
+    """Return a list of al site names in the configuration"""
+    config = get_config()
+
+    if config is None:
+        logger.error("No metatab configuration found. Can't get Wordpress credentials. Maybe create '~/.metapack.yaml'")
+
+    return [k for k in config.get('wordpress', {})]
+
 
 def get_site_config(site_name):
     config = get_config()
@@ -152,6 +161,7 @@ def publish_wp(site_name, output_file, resources, args):
     'Featured_image' is an attachment id
 
     """
+    import re
 
     url, user, password = get_site_config(site_name)
 
@@ -246,6 +256,8 @@ def publish_wp(site_name, output_file, resources, args):
 
         content = content.replace(img_from, img_to)
 
+
+
     if fm.get('featured_image') and str(fm.get('featured_image')).strip():
         post.thumbnail = int(fm['featured_image'])
 
@@ -253,7 +265,9 @@ def publish_wp(site_name, output_file, resources, args):
         # The thumbnail expects an attachment id on EditPost, but returns a dict on GetPost
         post.thumbnail = post.thumbnail['attachment_id']
 
+    content = re.sub(r'^\s*$', '', content)
     post.content = content
+
 
     if args.publish:
         post.post_status = 'publish'
@@ -267,3 +281,5 @@ def publish_wp(site_name, output_file, resources, args):
                 r = wp.call(EditPost(post.id, post))
 
         return r, wp.call(GetPost(post.id))
+    else:
+        return None, None
