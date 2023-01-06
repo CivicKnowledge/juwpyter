@@ -158,10 +158,18 @@ class SplitHeaders(Preprocessor):
                         if next_cell is None:
                             next_cell = copy(proto_cell)
 
-                        next_cell.source += l.strip()+'\n'
+                        # The nbconvert Markdown converter doesn't like putting <p>
+                        # around mathjax so fake it out with a space
+
+                        if l.startswith('$'):
+                            l = ' '+l
+
+                        if l.strip():
+                            next_cell.source += l+'\n'
 
                 if next_cell is not None:
                     new_cells.append(next_cell)
+
 
             else:
                 # Not a markwodn cell, so just move it over

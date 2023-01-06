@@ -2,8 +2,6 @@
 {% from 'celltags.j2' import celltags %}
 
 
-
-
 {%- block header -%}
 {%- for author in  nb.metadata.frontmatter.authors -%}
 <!-- wp:paragraph -->
@@ -115,9 +113,11 @@
 
         {%- elif type == 'text/plain' -%}
             {%- block data_text scoped -%}
+            {%- if output.data['text/plain']|trim -%}
 <!-- wp:preformatted -->
 <pre  class="wp-block-preformatted"> {{- output.data['text/plain'] | ansi2html -}}</pre>
 <!-- /wp:preformatted -->
+            {%- endif -%}
             {%- endblock -%}
         {%- elif type == 'text/latex' -%}
         {%- elif type == 'application/javascript' -%}

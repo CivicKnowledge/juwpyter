@@ -131,7 +131,6 @@ def main(args):
             sys.exit(1)
 
     def make_output():
-        check_site_name()
         check_source()
         output_file, resources = convert_wordpress(args.source, p)
         return output_file, resources
@@ -149,11 +148,10 @@ def main(args):
 
         print(f"=== Displaying {output_file} " )
         with open(output_file) as f:
-            for l in f.readlines():
-                print(l)
+            print(f.read())
 
     elif args.get:
-
+        check_site_name()
         output_file, resources = make_output()
 
         post = get_wp(args.site_name, output_file, resources, args)
@@ -165,6 +163,7 @@ def main(args):
         else:
             print('Did not find a post for this notebook')
     elif args.publish:
+        check_site_name()
         output_file, resources = make_output()
         r, post = publish_wp(args.site_name, output_file, resources, args)
         if post:
